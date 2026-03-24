@@ -25,3 +25,6 @@ build/
 
 # Generated output files
 FCP-automation/生成されたXML/
+
+# Plugin bundles (large binary assets)
+プラグイン/

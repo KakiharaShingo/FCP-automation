@@ -62,13 +62,16 @@ class AudioAnalyzer {
                 CMBlockBufferCopyDataBytes(blockBuffer, atOffset: 0, dataLength: length, destination: ptr.baseAddress!)
             }
 
-            // Int16 → Float 変換
+            // Int16 → Float 変換（中間配列なしで直接変換）
             let int16Count = length / 2
-            let int16Samples = data.withUnsafeBytes { ptr in
-                Array(UnsafeBufferPointer(start: ptr.bindMemory(to: Int16.self).baseAddress!, count: int16Count))
+            data.withUnsafeBytes { ptr in
+                guard let base = ptr.bindMemory(to: Int16.self).baseAddress else { return }
+                let scale = 1.0 / Float(Int16.max)
+                allSamples.reserveCapacity(allSamples.count + int16Count)
+                for i in 0..<int16Count {
+                    allSamples.append(Float(base[i]) * scale)
+                }
             }
-            let floatSamples = int16Samples.map { Float($0) / Float(Int16.max) }
-            allSamples.append(contentsOf: floatSamples)
         }
 
         return findSilentSegments(samples: allSamples, sampleRate: sampleRate,

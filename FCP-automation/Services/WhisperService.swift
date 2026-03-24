@@ -356,14 +356,16 @@ class WhisperService {
     static func filterHallucinations(_ segments: [TranscriptionSegment]) -> [TranscriptionSegment] {
         guard !segments.isEmpty else { return segments }
 
-        // 全セグメントのテキストを収集（クロスセグメント分析用）
-        let allTexts = segments.map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }
+        // 全セグメントのtrimmed textを一度だけ計算してキャッシュ（重複trimming防止）
+        let trimmedTexts = segments.map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }
 
         // セグメント間で共通する短いフレーズを抽出（ハルシネーションは同じ単語を繰り返しがち）
-        let crossSegmentPhrases = findCrossSegmentRepetition(allTexts)
+        let crossSegmentPhrases = findCrossSegmentRepetition(trimmedTexts)
 
-        var filtered = segments.filter { segment in
-            let text = segment.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // フィルタ内でtrimmedTextsを参照するためindex付きでフィルタ
+        let indexedSegments = segments.enumerated().map { ($0.offset, $0.element) }
+        var filtered = indexedSegments.filter { (idx, segment) in
+            let text = trimmedTexts[idx]
 
             // 1. 空テキスト除去
             if text.isEmpty { return false }
@@ -435,7 +437,7 @@ class WhisperService {
             }
 
             return true
-        }
+        }.map(\.1)  // (index, segment) → segment
 
         // 6. 全セグメントが同じキーフレーズの繰り返しなら全除去（環境音の典型パターン）
         if !filtered.isEmpty && isAllSegmentsRepetitive(filtered) {
